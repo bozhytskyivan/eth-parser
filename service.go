@@ -50,44 +50,47 @@ const (
 )
 
 // last parsed block
-func (s *service) GetCurrentBlock() int64 {
+func (s *service) GetCurrentBlock(_ context.Context) (int64, error) {
 	blockNumber, err := s.ethClient.GetCurrentBlock(s.id)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
-	return blockNumber
+	return blockNumber, nil
 }
 
 // add address to observer
-func (s *service) Subscribe(address string) bool {
-	err := s.storage.AddSubscription(context.Background(), address)
+func (s *service) Subscribe(ctx context.Context, address string) (bool, error) {
+	err := s.storage.AddSubscription(ctx, address)
 	if err != nil {
-		log.Fatal(err)
+		return false, err
 	}
 
-	return true
+	return true, nil
 }
 
-func (s *service) Unsubscribe(address string) bool {
-	err := s.storage.RemoveSubscription(context.Background(), address)
+func (s *service) Unsubscribe(ctx context.Context, address string) (bool, error) {
+	err := s.storage.RemoveSubscription(ctx, address)
 	if err != nil {
-		log.Fatal(err)
+		return false, err
 	}
 
-	//todo: remove unnecessary transactions
+	err = s.storage.DeleteTransactionsBy(ctx, address)
+	if err != nil {
+		return false, err
+	}
 
-	return true
+	return true, nil
 }
 
 // list of inbound or outbound transactions for an address
-func (s *service) GetTransactions(address string) []Transaction {
-	transactions, err := s.storage.GetTransactionsBy(context.Background(), address)
+func (s *service) GetTransactions(ctx context.Context, address string) ([]Transaction, error) {
+	transactions, err := s.storage.GetTransactionsBy(ctx, address)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return transactions
+	return transactions, nil
 }
 
 func (s *service) ParseBlocks(ctx context.Context) {
@@ -252,6 +255,7 @@ type Storage interface {
 	GetCurrentBlock(ctx context.Context) (int64, error)
 	SetCurrentBlock(ctx context.Context, currentBlock int64) error
 	GetTransactionsBy(ctx context.Context, address string) ([]Transaction, error)
+	DeleteTransactionsBy(ctx context.Context, address string) error
 	GetTransactionByHash(ctx context.Context, hash string) (Transaction, error)
 
 	// Subscriptions processing

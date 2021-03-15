@@ -2,48 +2,112 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 )
 
-type api struct {
+type httpHandlers struct {
 	service Service
 }
 
-func NewAPI() *api {
-	return &api{
+func NewHttpHandlers() *httpHandlers {
+	return &httpHandlers{
 		service: NewService(),
 	}
 }
 
-func (a *api) getCurrentBlockHandler(rw http.ResponseWriter, r *http.Request) {
+const (
+	queryParamAddress = "address"
+)
+
+func (h *httpHandlers) getCurrentBlockHandler(rw http.ResponseWriter, r *http.Request) {
+	currentBlock, err := h.service.GetCurrentBlock(nil)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		_, _ = rw.Write([]byte(err.Error()))
+		return
+	}
+
 	rw.WriteHeader(http.StatusOK)
-	_, _ = rw.Write([]byte("getCurrentBlockHandler"))
+
+	_, err = rw.Write([]byte(fmt.Sprintf("%d", currentBlock)))
+	if err != nil {
+		log.Printf("Could not write response body")
+	}
 }
 
-func (a *api) getTransactionsHandler(rw http.ResponseWriter, r *http.Request) {
+func (h *httpHandlers) getTransactionsHandler(rw http.ResponseWriter, r *http.Request) {
+	address := r.URL.Query().Get(queryParamAddress)
+
+	transactions, err := h.service.GetTransactions(r.Context(), address)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		_, _ = rw.Write([]byte(err.Error()))
+		return
+	}
+
+	resBody, err := json.Marshal(transactions)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		_, _ = rw.Write([]byte(err.Error()))
+		return
+	}
+
 	rw.WriteHeader(http.StatusOK)
-	_, _ = rw.Write([]byte("getTransactionsHandler"))
+
+	_, err = rw.Write(resBody)
+	if err != nil {
+		log.Printf("Could not write response body")
+	}
 }
 
-func (a *api) subscribeHandler(rw http.ResponseWriter, r *http.Request) {
+func (h *httpHandlers) subscribeHandler(rw http.ResponseWriter, r *http.Request) {
+	address := r.URL.Query().Get(queryParamAddress)
+
+	result, err := h.service.Subscribe(r.Context(), address)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		_, _ = rw.Write([]byte(err.Error()))
+		return
+	}
+
 	rw.WriteHeader(http.StatusOK)
-	_, _ = rw.Write([]byte("subscribeHandler"))
+
+	_, err = rw.Write([]byte(fmt.Sprintf("%v", result)))
+	if err != nil {
+		log.Printf("Could not write response body")
+	}
 }
 
-func (a *api) unsubscribeHandler(rw http.ResponseWriter, r *http.Request) {
+func (h *httpHandlers) unsubscribeHandler(rw http.ResponseWriter, r *http.Request) {
+	address := r.URL.Query().Get(queryParamAddress)
+
+	result, err := h.service.Unsubscribe(r.Context(), address)
+	if err != nil {
+		rw.WriteHeader(http.StatusInternalServerError)
+		_, _ = rw.Write([]byte(err.Error()))
+		return
+	}
+
 	rw.WriteHeader(http.StatusOK)
-	_, _ = rw.Write([]byte("unsubscribeHandler"))
+
+	_, err = rw.Write([]byte(fmt.Sprintf("%v", result)))
+	if err != nil {
+		log.Printf("Could not write response body")
+	}
 }
 
 type Service interface {
 	// last parsed block
-	GetCurrentBlock() int64
+	GetCurrentBlock(ctx context.Context) (int64, error)
 	// add address to observer
-	Subscribe(address string) bool
+	Subscribe(ctx context.Context, address string) (bool, error)
 	// remove address and transactions from observer
-	Unsubscribe(address string) bool
+	Unsubscribe(ctx context.Context, address string) (bool, error)
 	// list of inbound or outbound transactions for the address
-	GetTransactions(address string) []Transaction
+	GetTransactions(ctx context.Context, address string) ([]Transaction, error)
 
 	ParseBlocks(ctx context.Context)
 }

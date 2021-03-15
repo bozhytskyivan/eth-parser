@@ -60,6 +60,17 @@ func (s *storage) GetTransactionsBy(_ context.Context, address string) ([]Transa
 	return transactions, nil
 }
 
+func (s *storage) DeleteTransactionsBy(_ context.Context, address string) error {
+	transactions := s.userTransactions[address]
+	for _, t := range transactions {
+		delete(s.transactions, t.Hash)
+	}
+
+	delete(s.userTransactions, address)
+
+	return nil
+}
+
 func (s *storage) GetTransactionByHash(_ context.Context, hash string) (Transaction, error) {
 	s.txMux.RLock()
 	defer s.txMux.RUnlock()
