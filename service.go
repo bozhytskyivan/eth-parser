@@ -3,24 +3,32 @@ package main
 import (
 	"context"
 	"log"
+	"time"
 )
 
 type service struct {
 	storage   Storage
 	ethClient EthClient
 
-	id int64
+	id                   int64
+	startFromBlockNumber int64
+
+	pollingIntervalSec int
 }
 
 type serviceOption func(s *service)
 
-const DefaultID = 83
+const (
+	DefaultID              = 83
+	DefaultPollingInterval = 10
+)
 
 func NewService(opts ...serviceOption) *service {
 	s := &service{
-		storage:   NewStorage(),
-		ethClient: NewEthClient(),
-		id:        DefaultID,
+		storage:            NewStorage(),
+		ethClient:          NewEthClient(),
+		id:                 DefaultID,
+		pollingIntervalSec: DefaultPollingInterval,
 	}
 
 	for _, optFn := range opts {
@@ -83,12 +91,28 @@ func (s *service) GetTransactions(address string) []Transaction {
 }
 
 func (s *service) ParseBlocks(ctx context.Context) {
+	currentBlockNumber, err := s.storage.GetCurrentBlock(ctx)
+	if err != nil {
+		log.Printf("Could not get current block number: %v", err)
+		return
+	}
+
+	// pre setup current block not to start parsing from the very beginning
+	if currentBlockNumber == 0 {
+		err = s.setupStartingBlockNumber(ctx)
+		if err != nil {
+			log.Printf("Could not setup starting block number: %v", err)
+			return
+		}
+	}
+
+	t := time.NewTicker(time.Second * time.Duration(s.pollingIntervalSec))
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		default:
-			// todo: use ticker
+		case <-t.C:
 			ctx := context.Background()
 			transactions, err := s.getNewTransactions(ctx)
 			if err != nil {
@@ -201,10 +225,32 @@ func (s *service) getNewTransactions(ctx context.Context) ([]Transaction, error)
 	return result, nil
 }
 
+func (s *service) setupStartingBlockNumber(ctx context.Context) error {
+	if s.startFromBlockNumber != 0 {
+		err := s.storage.SetCurrentBlock(ctx, s.startFromBlockNumber)
+		if err != nil {
+			return err
+		}
+	} else {
+		latestBlock, err := s.ethClient.GetCurrentBlock(s.id)
+		if err != nil {
+			return err
+		}
+
+		err = s.storage.SetCurrentBlock(ctx, latestBlock)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 type Storage interface {
 	// Transactions processing
 	AddTransaction(ctx context.Context, t Transaction) error
 	GetCurrentBlock(ctx context.Context) (int64, error)
+	SetCurrentBlock(ctx context.Context, currentBlock int64) error
 	GetTransactionsBy(ctx context.Context, address string) ([]Transaction, error)
 	GetTransactionByHash(ctx context.Context, hash string) (Transaction, error)
 

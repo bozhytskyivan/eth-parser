@@ -6,8 +6,10 @@ import (
 )
 
 type storage struct {
-	transactions []Transaction
-	txMux        sync.RWMutex
+	userTransactions map[string][]Transaction
+	transactions     map[string]Transaction
+	latestBlock      int64
+	txMux            sync.RWMutex
 
 	subscriptions    map[string]Subscription
 	subscriptionsMux sync.RWMutex
@@ -27,7 +29,9 @@ func (s *storage) AddTransaction(_ context.Context, t Transaction) error {
 	s.txMux.Lock()
 	defer s.txMux.Unlock()
 
-	s.transactions = append(s.transactions, t)
+	s.userTransactions[t.From] = append(s.userTransactions[t.From], t)
+	s.userTransactions[t.To] = append(s.userTransactions[t.To], t)
+	s.transactions[t.Hash] = t
 	return nil
 }
 
@@ -35,41 +39,34 @@ func (s *storage) GetCurrentBlock(_ context.Context) (int64, error) {
 	s.txMux.RLock()
 	defer s.txMux.RUnlock()
 
-	size := len(s.transactions)
-	if size == 0 {
-		return -1, nil
-	}
+	return s.latestBlock, nil
+}
 
-	return int64(s.transactions[size-1].BlockNumber), nil
+func (s *storage) SetCurrentBlock(_ context.Context, blockNumber int64) error {
+	s.txMux.RLock()
+	defer s.txMux.RUnlock()
+
+	s.latestBlock = blockNumber
+
+	return nil
 }
 
 func (s *storage) GetTransactionsBy(_ context.Context, address string) ([]Transaction, error) {
 	s.txMux.RLock()
 	defer s.txMux.RUnlock()
 
-	var result []Transaction
-	for _, t := range s.transactions {
-		if t.From == address || t.To == address {
-			result = append(result, t)
-		}
-	}
+	transactions := s.userTransactions[address]
 
-	return result, nil
+	return transactions, nil
 }
 
 func (s *storage) GetTransactionByHash(_ context.Context, hash string) (Transaction, error) {
 	s.txMux.RLock()
 	defer s.txMux.RUnlock()
 
-	var result Transaction
-	for _, t := range s.transactions {
-		if t.Hash == hash {
-			result = t
-			break
-		}
-	}
+	transaction := s.transactions[hash]
 
-	return result, nil
+	return transaction, nil
 }
 
 func (s *storage) AddSubscription(_ context.Context, address string) error {
