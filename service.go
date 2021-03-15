@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -93,7 +94,7 @@ func (s *service) GetTransactions(ctx context.Context, address string) ([]Transa
 	return transactions, nil
 }
 
-func (s *service) ParseBlocks(ctx context.Context) {
+func (s *service) ParseBlocks(ctx context.Context, wg *sync.WaitGroup) {
 	currentBlockNumber, err := s.storage.GetCurrentBlock(ctx)
 	if err != nil {
 		log.Printf("Could not get current block number: %v", err)
@@ -114,6 +115,7 @@ func (s *service) ParseBlocks(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			wg.Done()
 			return
 		case <-t.C:
 			ctx := context.Background()

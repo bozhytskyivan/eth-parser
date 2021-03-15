@@ -6,16 +6,25 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 )
 
 type httpHandlers struct {
 	service Service
 }
 
-func NewHttpHandlers() *httpHandlers {
-	return &httpHandlers{
+type HttpHandlersOption func(handlers *httpHandlers)
+
+func NewHttpHandlers(opts ...HttpHandlersOption) *httpHandlers {
+	h := &httpHandlers{
 		service: NewService(),
 	}
+
+	for _, optionFn := range opts {
+		optionFn(h)
+	}
+
+	return h
 }
 
 const (
@@ -109,5 +118,5 @@ type Service interface {
 	// list of inbound or outbound transactions for the address
 	GetTransactions(ctx context.Context, address string) ([]Transaction, error)
 
-	ParseBlocks(ctx context.Context)
+	ParseBlocks(ctx context.Context, wg *sync.WaitGroup)
 }
