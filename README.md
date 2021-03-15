@@ -1,4 +1,4 @@
-# Ethereum notifier service
+# Ethereum parser service
 
 ## Goal
 
