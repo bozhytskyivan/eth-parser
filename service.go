@@ -51,13 +51,8 @@ const (
 )
 
 // last parsed block
-func (s *service) GetCurrentBlock(_ context.Context) (int64, error) {
-	blockNumber, err := s.ethClient.GetCurrentBlock(s.id)
-	if err != nil {
-		log.Println(err)
-	}
-
-	return blockNumber, nil
+func (s *service) GetCurrentBlock(ctx context.Context) (int64, error) {
+	return s.storage.GetCurrentBlock(ctx)
 }
 
 // add address to observer
@@ -95,6 +90,8 @@ func (s *service) GetTransactions(ctx context.Context, address string) ([]Transa
 }
 
 func (s *service) ParseBlocks(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	currentBlockNumber, err := s.storage.GetCurrentBlock(ctx)
 	if err != nil {
 		log.Printf("Could not get current block number: %v", err)
@@ -115,7 +112,6 @@ func (s *service) ParseBlocks(ctx context.Context, wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-ctx.Done():
-			wg.Done()
 			return
 		case <-t.C:
 			ctx := context.Background()

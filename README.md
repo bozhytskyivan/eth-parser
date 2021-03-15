@@ -51,3 +51,30 @@ curl -X POST 'https://cloudflare-eth.com' --data '{"jsonrpc":"2.0","method":"eth
 ### References
 
 - [Ethereum JSON RPC Interface](https://eth.wiki/json-rpc/API)
+
+## Solution  
+### The solution provides next interface
+```golang
+type Service interface {
+	// last parsed block
+	GetCurrentBlock(ctx context.Context) (int64, error)
+	// add address to observer
+	Subscribe(ctx context.Context, address string) (bool, error)
+	// remove address and transactions from observer
+	Unsubscribe(ctx context.Context, address string) (bool, error)
+	// list of inbound or outbound transactions for the address
+	GetTransactions(ctx context.Context, address string) ([]Transaction, error)
+
+	ParseBlocks(ctx context.Context, wg *sync.WaitGroup)
+}
+```
+
+### Is it exposed via http API with next endpoints
+* `GET /getCurrentBlock` returns last parsed block
+* `GET /getTransactions?address={address}` returns parsed transactions for provided `address` value
+* `GET /subscribe?address={address}` add provided `address` value to the list of transaction subscriptions
+* `GET /unsubscribe?address={address}` removes provided `address` value from the list of transaction subscriptions and removes all related transactions
+
+### How to run locally
+1. Install go 
+2. Run `make start` from the project's root
