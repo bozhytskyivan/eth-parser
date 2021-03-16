@@ -17,7 +17,9 @@ type storage struct {
 
 func NewStorage() *storage {
 	return &storage{
-		subscriptions: make(map[string]Subscription),
+		userTransactions: make(map[string][]Transaction),
+		transactions:     make(map[string]Transaction),
+		subscriptions:    make(map[string]Subscription),
 	}
 }
 

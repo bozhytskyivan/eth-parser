@@ -121,11 +121,20 @@ func (s *service) ParseBlocks(ctx context.Context, wg *sync.WaitGroup) {
 				continue
 			}
 
+			var lastProcessedTransaction Transaction
+
 			for _, transaction := range transactions {
 				err = s.processNewTransaction(ctx, transaction)
 				if err != nil {
 					log.Printf("Error while processing new transaction: %v", err)
 				}
+
+				lastProcessedTransaction = transaction
+			}
+
+			err = s.storage.SetCurrentBlock(ctx, int64(lastProcessedTransaction.BlockNumber))
+			if err != nil {
+				log.Println("Error while saving last processed block", lastProcessedTransaction.BlockNumber, err)
 			}
 		}
 	}
