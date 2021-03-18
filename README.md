@@ -78,3 +78,9 @@ type Service interface {
 ### How to run locally
 1. Install go 
 2. Run `make start` from the project's root
+
+### As an example, it is deployed via repl.it
+* `https://eth-parser.bozhytskyivan.repl.co/getCurrentBlock`
+* `https://eth-parser.bozhytskyivan.repl.co/getTransactions?address={address}`
+* `https://eth-parser.bozhytskyivan.repl.co/subscribe?address={address}`
+* `https://eth-parser.bozhytskyivan.repl.co/unsubscribe?address={address}`
